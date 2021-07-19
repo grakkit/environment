@@ -1,0 +1,11 @@
+{
+   "compilerOptions": {
+      "declaration": true,
+      "forceConsistentCasingInFileNames": true,
+      "lib": [ "ESNext" ],
+      "module": "CommonJS",
+      "moduleResolution": "Node",
+      "skipLibCheck": true,
+      "target": "ES2020"
+   }
+}

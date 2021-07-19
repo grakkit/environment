@@ -1,0 +1,17 @@
+{
+   "dependencies": {
+      "@grakkit/js": "1.0.1",
+      "@grakkit/stdlib": "1.0.3",
+      "@grakkit/types-minestom": "1.0.0"
+   },
+   "main": "index.js",
+   "name": "@grakkit/stdlib-minestom",
+   "publishConfig": {
+      "access": "public"
+   },
+   "scripts": {
+      "garbo1234": "npm publish"
+   },
+   "types": "index.d.ts",
+   "version": "1.0.3"
+}
