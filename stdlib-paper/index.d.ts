@@ -1,6 +1,6 @@
 import './scope';
 import '@grakkit/stdlib';
-import * as types from '@grakkit/types';
+import * as types from '@grakkit/types-paper';
 
 declare module '@grakkit/stdlib' {
    /** Registers a custom command to the server. */
