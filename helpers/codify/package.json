@@ -1,0 +1,19 @@
+{
+   "devDependencies": {
+      "typescript": "4.1.3"
+   },
+   "dependencies": {
+      "@grakkit/server": "1.4.2",
+      "@grakkit/server-classes": "1.0.1"
+   },
+   "main": "index.js",
+   "name": "@grakkit/codify",
+   "publishConfig": {
+      "access": "public"
+   },
+   "scripts": {
+      "build": "tsc --watch"
+   },
+   "types": "index.d.ts",
+   "version": "1.0.2"
+}
