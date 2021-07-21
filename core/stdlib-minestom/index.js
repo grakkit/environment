@@ -1,13 +1,14 @@
-const stdlib = require('@grakkit/stdlib');
+const base = require('@grakkit/stdlib');
 require('@grakkit/js');
 
 const addons = {
-   core: stdlib,
-   extension: stdlib.env.content.extension,
-   manager: stdlib.env.content.manager,
-   server: stdlib.env.content.server
+   extension: base.env.content.extension,
+   manager: base.env.content.manager,
+   server: base.env.content.server
 };
 
-Object.assign(globalThis, addons);
+const stdlib = Object.assign({}, base, addons);
 
-module.exports = Object.assign({}, stdlib, addons);
+Object.assign(globalThis, addons, { core: stdlib });
+
+module.exports = stdlib;
