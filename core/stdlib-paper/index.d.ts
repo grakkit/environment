@@ -1177,4 +1177,5 @@ declare module '@grakkit/stdlib' {
    }
 }
 
+export * from './scope';
 export * from '@grakkit/stdlib';
