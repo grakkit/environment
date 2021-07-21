@@ -1177,5 +1177,9 @@ declare module '@grakkit/stdlib' {
    }
 }
 
-export * from './scope';
 export * from '@grakkit/stdlib';
+
+export declare const core: typeof import('./index');
+export declare const manager: types.obpPluginManager;
+export declare const plugin: types.obpPlugin;
+export declare const server: types.obServer;

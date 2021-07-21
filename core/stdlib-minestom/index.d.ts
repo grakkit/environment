@@ -1115,5 +1115,9 @@ declare module '@grakkit/stdlib' {
    }
 }
 
-export * from './scope';
 export * from '@grakkit/stdlib';
+
+export declare const core: typeof import('./index');
+export declare const extension: types.nmseExtension;
+export declare const manager: types.nmseExtensionManager;
+export declare const server: types.nmsMinecraftServer;
