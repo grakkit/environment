@@ -1,4 +1,4 @@
-import { type, server, root, simplify, plugin } from '@grakkit/server';
+import { type, server, root, simplify, plugin } from '@grakkit/stdlib-paper';
 
 import {
    obiItemStack,
@@ -10,7 +10,7 @@ import {
    obeEntity,
    obpPersistentDataType,
    obOfflinePlayer
-} from '@grakkit/server-classes';
+} from '@grakkit/types-paper';
 
 export type HasBoundingBox = obuBoundingBox | SerialBoundingBox | IsPhysical;
 export type HasItemStack = obiItemStack | SerialItemStack | IsPhysical;
@@ -256,6 +256,7 @@ export const parse: {
             return item_stack;
          case 'Location':
             return new Location(
+               //@ts-expect-error
                server.getWorld(UUID.fromString(object.world)),
                object.x,
                object.y,

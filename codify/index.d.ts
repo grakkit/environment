@@ -1,4 +1,4 @@
-import { obiItemStack, obuVector, obLocation, obePlayer, obuBoundingBox, obbBlock, obeEntity, obOfflinePlayer } from '@grakkit/server-classes';
+import { obiItemStack, obuVector, obLocation, obePlayer, obuBoundingBox, obbBlock, obeEntity, obOfflinePlayer } from '@grakkit/types-paper';
 export declare type HasBoundingBox = obuBoundingBox | SerialBoundingBox | IsPhysical;
 export declare type HasItemStack = obiItemStack | SerialItemStack | IsPhysical;
 export declare type HasLocation = obLocation | SerialLocation | IsPhysical;

@@ -1,25 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.vector = exports.serialize = exports.parse = exports.location = exports.itemStack = exports.data = exports.boundingBox = exports.session = void 0;
-const server_1 = require("@grakkit/server");
+const stdlib_paper_1 = require("@grakkit/stdlib-paper");
 exports.session = { data: new Map() };
-const ArrayList = server_1.type('java.util.ArrayList');
-const Block = server_1.type('org.bukkit.block.Block');
-const BlockStateMeta = server_1.type('org.bukkit.inventory.meta.BlockStateMeta');
-const BoundingBox = server_1.type('org.bukkit.util.BoundingBox');
-const Entity = server_1.type('org.bukkit.entity.Entity');
-const EntityType = server_1.type('org.bukkit.entity.EntityType');
-const ItemStack = server_1.type('org.bukkit.inventory.ItemStack');
-const LivingEntity = server_1.type('org.bukkit.entity.LivingEntity');
-const Location = server_1.type('org.bukkit.Location');
-const Material = server_1.type('org.bukkit.Material');
-const NamespacedKey = server_1.type('org.bukkit.NamespacedKey');
-const OfflinePlayer = server_1.type('org.bukkit.OfflinePlayer');
-const PersistentDataHolder = server_1.type('org.bukkit.persistence.PersistentDataHolder');
-const PersistentDataType = server_1.type('org.bukkit.persistence.PersistentDataType');
-const SpawnReason = server_1.type('org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason');
-const UUID = server_1.type('java.util.UUID');
-const Vector = server_1.type('org.bukkit.util.Vector');
+const ArrayList = stdlib_paper_1.type('java.util.ArrayList');
+const Block = stdlib_paper_1.type('org.bukkit.block.Block');
+const BlockStateMeta = stdlib_paper_1.type('org.bukkit.inventory.meta.BlockStateMeta');
+const BoundingBox = stdlib_paper_1.type('org.bukkit.util.BoundingBox');
+const Entity = stdlib_paper_1.type('org.bukkit.entity.Entity');
+const EntityType = stdlib_paper_1.type('org.bukkit.entity.EntityType');
+const ItemStack = stdlib_paper_1.type('org.bukkit.inventory.ItemStack');
+const LivingEntity = stdlib_paper_1.type('org.bukkit.entity.LivingEntity');
+const Location = stdlib_paper_1.type('org.bukkit.Location');
+const Material = stdlib_paper_1.type('org.bukkit.Material');
+const NamespacedKey = stdlib_paper_1.type('org.bukkit.NamespacedKey');
+const OfflinePlayer = stdlib_paper_1.type('org.bukkit.OfflinePlayer');
+const PersistentDataHolder = stdlib_paper_1.type('org.bukkit.persistence.PersistentDataHolder');
+const PersistentDataType = stdlib_paper_1.type('org.bukkit.persistence.PersistentDataType');
+const SpawnReason = stdlib_paper_1.type('org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason');
+const UUID = stdlib_paper_1.type('java.util.UUID');
+const Vector = stdlib_paper_1.type('org.bukkit.util.Vector');
 const NMS = (() => {
     const item = new ItemStack(Material.STONE).ensureServerConversions();
     const meta = item.getItemMeta();
@@ -29,31 +29,31 @@ const NMS = (() => {
     return item.handle.getTag().getClass().getCanonicalName().split('.').slice(0, -1).join('.');
 })();
 //@ts-expect-error
-const NBTTagByte = server_1.type(`${NMS}.NBTTagByte`);
+const NBTTagByte = stdlib_paper_1.type(`${NMS}.NBTTagByte`);
 //@ts-expect-error
-const NBTTagByteArray = server_1.type(`${NMS}.NBTTagByteArray`);
+const NBTTagByteArray = stdlib_paper_1.type(`${NMS}.NBTTagByteArray`);
 //@ts-expect-error
-const NBTTagCompound = server_1.type(`${NMS}.NBTTagCompound`);
+const NBTTagCompound = stdlib_paper_1.type(`${NMS}.NBTTagCompound`);
 //@ts-expect-error
-const NBTTagDouble = server_1.type(`${NMS}.NBTTagDouble`);
+const NBTTagDouble = stdlib_paper_1.type(`${NMS}.NBTTagDouble`);
 //@ts-expect-error
-const NBTTagFloat = server_1.type(`${NMS}.NBTTagFloat`);
+const NBTTagFloat = stdlib_paper_1.type(`${NMS}.NBTTagFloat`);
 //@ts-expect-error
-const NBTTagInt = server_1.type(`${NMS}.NBTTagInt`);
+const NBTTagInt = stdlib_paper_1.type(`${NMS}.NBTTagInt`);
 //@ts-expect-error
-const NBTTagIntArray = server_1.type(`${NMS}.NBTTagIntArray`);
+const NBTTagIntArray = stdlib_paper_1.type(`${NMS}.NBTTagIntArray`);
 //@ts-expect-error
-const NBTTagList = server_1.type(`${NMS}.NBTTagList`);
+const NBTTagList = stdlib_paper_1.type(`${NMS}.NBTTagList`);
 //@ts-expect-error
-const NBTTagLong = server_1.type(`${NMS}.NBTTagLong`);
+const NBTTagLong = stdlib_paper_1.type(`${NMS}.NBTTagLong`);
 //@ts-expect-error
-const NBTTagLongArray = server_1.type(`${NMS}.NBTTagLongArray`);
+const NBTTagLongArray = stdlib_paper_1.type(`${NMS}.NBTTagLongArray`);
 //@ts-expect-error
-const NBTTagShort = server_1.type(`${NMS}.NBTTagShort`);
+const NBTTagShort = stdlib_paper_1.type(`${NMS}.NBTTagShort`);
 //@ts-expect-error
-const NBTTagString = server_1.type(`${NMS}.NBTTagString`);
+const NBTTagString = stdlib_paper_1.type(`${NMS}.NBTTagString`);
 function auto(path) {
-    exports.session.data.has(path) || exports.session.data.set(path, server_1.root.file('codify', `${path}.json`).json() || {});
+    exports.session.data.has(path) || exports.session.data.set(path, stdlib_paper_1.root.file('codify', `${path}.json`).json() || {});
     return exports.session.data.get(path);
 }
 function boundingBox(arg1) {
@@ -92,7 +92,7 @@ const data = (arg1, arg2 = 'default') => {
         const meta = thing.getItemMeta();
         if (meta instanceof PersistentDataHolder) {
             const container = meta.getPersistentDataContainer();
-            const key = new NamespacedKey(server_1.plugin, `codify/${arg2}`);
+            const key = new NamespacedKey(stdlib_paper_1.plugin, `codify/${arg2}`);
             return {
                 get value() {
                     return container.has(key, string) ? JSON.parse(container.get(key, string)) : void 0;
@@ -103,7 +103,7 @@ const data = (arg1, arg2 = 'default') => {
                         container.has(key, string) && (container.remove(key), thing.setItemMeta(meta));
                     }
                     else {
-                        const raw = JSON.stringify(server_1.simplify(value));
+                        const raw = JSON.stringify(stdlib_paper_1.simplify(value));
                         const match = container.has(key, string) && raw === container.get(key, string);
                         //@ts-expect-error
                         match || (container.set(key, string, raw), thing.setItemMeta(meta));
@@ -154,7 +154,7 @@ const parse = (object) => {
                 return BoundingBox.of(exports.parse(object.min), exports.parse(object.max));
             case 'Entity':
                 try {
-                    let entity = [...server_1.server.selectEntities(sender, '@e')].filter(entity => object.uuid === entity.getUniqueId().toString())[0];
+                    let entity = [...stdlib_paper_1.server.selectEntities(sender, '@e')].filter(entity => object.uuid === entity.getUniqueId().toString())[0];
                     if (!entity) {
                         const location = exports.parse(object.location);
                         entity = location.getWorld().spawnEntity(location, EntityType[object.type], SpawnReason.CUSTOM);
@@ -174,7 +174,9 @@ const parse = (object) => {
                 item_stack.getHandle().setTag(exports.parse(object.nbt));
                 return item_stack;
             case 'Location':
-                return new Location(server_1.server.getWorld(UUID.fromString(object.world)), object.x, object.y, object.z, object.yaw, object.pitch);
+                return new Location(
+                //@ts-expect-error
+                stdlib_paper_1.server.getWorld(UUID.fromString(object.world)), object.x, object.y, object.z, object.yaw, object.pitch);
             case 'NBTTagByte':
                 return NBTTagByte.a(object.value);
             case 'NBTTagByteArray':
@@ -325,13 +327,13 @@ function vector(arg1) {
     }
 }
 exports.vector = vector;
-const sender = server_1.server.getConsoleSender();
+const sender = stdlib_paper_1.server.getConsoleSender();
 //@ts-expect-error
 const string = PersistentDataType.STRING;
 Core.hook(() => {
     for (const [path, content] of exports.session.data) {
-        const raw = JSON.stringify(server_1.simplify(content));
-        const target = server_1.root.file('codify', `${path}.json`);
+        const raw = JSON.stringify(stdlib_paper_1.simplify(content));
+        const target = stdlib_paper_1.root.file('codify', `${path}.json`);
         if (raw === '{}') {
             target.exists && target.remove();
         }
