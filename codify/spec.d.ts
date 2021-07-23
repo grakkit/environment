@@ -13,7 +13,7 @@ import {
    obLocation,
    obuBoundingBox,
    obuVector
-} from '@grakkit/server-classes';
+} from '@grakkit/types-paper';
 
 export type NBTTag =
    | NBTTagByte
@@ -30,6 +30,7 @@ export type NBTTag =
    | NBTTagString;
 
 export class NBTTagByte {
+   constructor ();
    static a (value: number): NBTTagByte;
    asByte (): number;
 }
@@ -41,6 +42,7 @@ export class NBTTagByteArray {
 }
 
 export class NBTTagCompound {
+   constructor ();
    get (key: string): NBTTag;
    getKeys (): Iterable<string>;
    remove (key: string): void;
@@ -48,16 +50,19 @@ export class NBTTagCompound {
 }
 
 export class NBTTagDouble {
+   constructor ();
    static a (value: number): NBTTagDouble;
    asDouble (): number;
 }
 
 export class NBTTagFloat {
+   constructor ();
    static a (value: number): NBTTagFloat;
    asFloat (): number;
 }
 
 export class NBTTagInt {
+   constructor ();
    static a (value: number): NBTTagInt;
    asInt (): number;
 }
@@ -69,11 +74,13 @@ export class NBTTagIntArray {
 }
 
 export class NBTTagList {
+   constructor ();
    [Symbol.iterator] (): Iterator<NBTTag>;
    add (value: NBTTag): void;
 }
 
 export class NBTTagLong {
+   constructor ();
    static a (value: number): NBTTagLong;
    asLong (): number;
 }
@@ -85,11 +92,13 @@ export class NBTTagLongArray {
 }
 
 export class NBTTagShort {
+   constructor ();
    static a (value: number): NBTTagShort;
    asShort (): number;
 }
 
 export class NBTTagString {
+   constructor ();
    static a (value: string): NBTTagString;
    asString (): string;
 }
@@ -133,6 +142,7 @@ export type Parser = {
    // fallback
    (object: SerializedNBTTag): NBTTag;
    (object: SerializedBlockState, subject: obbBlockState): obbBlockState;
+   <X>(object: X): X;
 };
 
 export type Serializable =
@@ -333,12 +343,5 @@ export type Serializer = {
    // fallback
    (object: NBTTag): SerializedNBTTag;
    (object: obbBlockState): SerializedBlockStateBasic;
+   <X>(object: X): X;
 };
-
-export type Subject = obbBlock &
-   obbCreatureSpawner &
-   obbSign &
-   obbSkull &
-   obiBlockInventoryHolder &
-   obiInventory &
-   obLocation;

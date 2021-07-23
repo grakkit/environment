@@ -1,7 +1,4 @@
 {
-   "devDependencies": {
-      "typescript": "4.1.3"
-   },
    "dependencies": {
       "@grakkit/stdlib-paper": "1.0.11"
    },
@@ -11,8 +8,8 @@
       "access": "public"
    },
    "scripts": {
-      "build": "tsc --watch"
+      "garbo1234": "npm publish"
    },
    "types": "index.d.ts",
-   "version": "1.0.3"
+   "version": "1.0.4"
 }
