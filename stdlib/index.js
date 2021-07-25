@@ -257,13 +257,7 @@ function event(name, ...listeners) {
 exports.event = event;
 /** Sends a GET request to the given URL. */
 function fetch(link) {
-    //@ts-expect-error
-    const net = new URL(link).openConnection();
-    net.setDoOutput(true);
-    net.setRequestMethod('GET');
-    net.setInstanceFollowRedirects(true);
     const thing = {
-        net,
         json(async) {
             if (async) {
                 return sync(async () => thing.json());
@@ -277,7 +271,6 @@ function fetch(link) {
                 }
             }
         },
-        //@ts-expect-error
         read(async) {
             if (async) {
                 return sync(async () => thing.read());
@@ -286,19 +279,12 @@ function fetch(link) {
                 return new Scanner(thing.stream()).useDelimiter('\\A').next();
             }
         },
-        //@ts-expect-error
         stream(async) {
             if (async) {
                 return sync(async () => thing.stream());
             }
             else {
-                const code = net.getResponseCode();
-                switch (code) {
-                    case 200:
-                        return net.getInputStream();
-                    default:
-                        throw new ReferenceError(`${code} ${net.getResponseMessage()}`);
-                }
+                return new URL(link).openStream();
             }
         }
     };

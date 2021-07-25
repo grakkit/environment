@@ -2,7 +2,7 @@
 
 import { classes } from './classes';
 export { classes } from './classes';
-import { jiFile, jiInputStream, jnHttpURLConnection } from '@grakkit/types';
+import { jiFile, jiInputStream } from '@grakkit/types';
 
 /** A set of listeners attached to an event. */
 export type cascade = Set<((event: any) => void) | { script: (event: any) => void; priority: priority }>;
@@ -55,8 +55,6 @@ export type record = {
 
 /** A web response. */
 export type response = {
-   /** The connection instance used to make this request. */
-   net: jnHttpURLConnection;
    /** Synchronously parses the JSON content (if any) of the response. */
    json(async?: false): any;
    /** Parses the JSON content (if any) of the response. */
@@ -349,14 +347,8 @@ export function event<X extends keyof classes & `${string}Event`> (
 }
 
 /** Sends a GET request to the given URL. */
-export function fetch (link: string) {
-   //@ts-expect-error
-   const net: jnHttpURLConnection = new URL(link).openConnection();
-   net.setDoOutput(true);
-   net.setRequestMethod('GET');
-   net.setInstanceFollowRedirects(true);
-   const thing: response = {
-      net,
+export function fetch (link: string): response {
+   const thing = {
       json (async?: boolean) {
          if (async) {
             return sync(async () => thing.json());
@@ -368,7 +360,6 @@ export function fetch (link: string) {
             }
          }
       },
-      //@ts-expect-error
       read (async?: boolean) {
          if (async) {
             return sync(async () => thing.read());
@@ -376,18 +367,11 @@ export function fetch (link: string) {
             return new Scanner(thing.stream()).useDelimiter('\\A').next();
          }
       },
-      //@ts-expect-error
       stream (async?: boolean) {
          if (async) {
             return sync(async () => thing.stream());
          } else {
-            const code = net.getResponseCode();
-            switch (code) {
-               case 200:
-                  return net.getInputStream();
-               default:
-                  throw new ReferenceError(`${code} ${net.getResponseMessage()}`);
-            }
+            return new URL(link).openStream();
          }
       }
    };

@@ -1,7 +1,7 @@
 /// <reference path="scope.d.ts" />
 import { classes } from './classes';
 export { classes } from './classes';
-import { jiFile, jiInputStream, jnHttpURLConnection } from '@grakkit/types';
+import { jiFile, jiInputStream } from '@grakkit/types';
 /** A set of listeners attached to an event. */
 export declare type cascade = Set<((event: any) => void) | {
     script: (event: any) => void;
@@ -56,8 +56,6 @@ export declare type record = {
 };
 /** A web response. */
 export declare type response = {
-    /** The connection instance used to make this request. */
-    net: jnHttpURLConnection;
     /** Synchronously parses the JSON content (if any) of the response. */
     json(async?: false): any;
     /** Parses the JSON content (if any) of the response. */

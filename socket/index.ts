@@ -23,6 +23,23 @@ type ClientEvents = {
    ];
 };
 
+type ExchangeEvents = {
+   message: [
+      {
+         /** The message being received. */
+         message: Uint8Array;
+         /** The exchange which sent the message to this exchange. */
+         client: Messenger;
+      }
+   ];
+   error: [
+      {
+         /** The error message. */
+         error: any;
+      }
+   ];
+};
+
 type ServerEvents = {
    connect: [
       {
