@@ -1,0 +1,12 @@
+{
+   "main": "index.js",
+   "name": "@harrix432/events",
+   "publishConfig": {
+      "access": "public"
+   },
+   "scripts": {
+      "garbo1234": "npm publish"
+   },
+   "types": "index.d.ts",
+   "version": "1.0.1"
+}
