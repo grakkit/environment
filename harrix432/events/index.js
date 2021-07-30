@@ -38,7 +38,7 @@ class XHost {
             });
         }
         else {
-            const list = this.events[name] || [];
+            const list = this.events[name] || (this.events[name] = []);
             list.push(a2);
             list
                 .sort((handler1, handler2) => (typeof handler1 === 'function' ? 0 : handler1.priority) -

@@ -38,7 +38,7 @@ export class XHost<A extends { [x in string]: any[] } = {}> {
             this.on(name, singleton);
          });
       } else {
-         const list = this.events[name] || [];
+         const list = this.events[name] || (this.events[name] = []);
          list!.push(a2);
          list!
             .sort(
