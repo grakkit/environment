@@ -1,7 +1,56 @@
+interface FileInstance extends Instance {
+   main: string;
+}
+
+interface Instance {
+   context: import('@grakkit/types').ogpContext;
+   hooks: Queue;
+   messages: import('@grakkit/types').juLinkedList<Message>;
+   meta: string;
+   root: string;
+   tasks: Queue;
+   close (): void;
+   destroy (): void;
+   execute (): void;
+   open (): void;
+   tick (): void;
+};
+
+interface Message {
+   channel: string;
+   content: string;
+}
+
+interface Queue {
+   list: import('@grakkit/types').juLinkedList<Function>;
+   release (): void;
+}
+
+interface ScriptInstance extends Instance {
+   code: string;
+}
+
 /** @deprecated */
 declare const Core: any;
 
-declare const Grakkit: any;
+declare const Grakkit: {
+   destroy(): void;
+   emit(channel: string, message: string): void;
+   fileInstance(main: string, meta?: string): FileInstance;
+   getMeta(): string;
+   getRoot(): string;
+   hook(script: Function);
+   load(source: import('@grakkit/types').jiFile, name: string): import('@grakkit/types').jlClass<unknown>;
+   off(channel: string, listener: (data: string) => void): boolean;
+   on(channel: string): Promise<string>;
+   on(channel: string, listener: (data: string) => void): void;
+   push(script: Function);
+   scriptInstance(code: string, meta?: string): ScriptInstance;
+   swap(): void;
+   /** @deprecated */
+   sync(script: Function);
+};
+
 declare const Java: any;
 declare const Polyglot: any;
 
@@ -15,6 +64,9 @@ declare function queueMicrotask (...args: any[]): void
 declare function setImmediate (script: string | Function, ...args: any[]): number
 declare function setInterval (script: string | Function, period?: number, ...args: any[]): number
 declare function setTimeout (script: string | Function, period?: number, ...args: any[]): number
+
+declare const __dirname: string;
+declare const __filename: string;
 
 declare const console: {
    // memory: any;

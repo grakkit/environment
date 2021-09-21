@@ -1,5 +1,5 @@
 const base = require('@grakkit/stdlib');
-require('@grakkit/js');
+base.context.meta === 'grakkit' && require('@grakkit/js');
 
 const addons = {
    manager: base.env.content.manager,

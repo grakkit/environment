@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.format = exports.dev = exports.circular = exports.array = void 0;
+exports.format = exports.circular = exports.array = void 0;
 const stdlib_1 = require("@grakkit/stdlib");
 const Class = stdlib_1.type('java.lang.Class');
 const Iterable = stdlib_1.type('java.lang.Iterable');
@@ -32,156 +32,6 @@ function array(object) {
 exports.array = array;
 /** Internal value used to represent circular object references in formatted output. */
 exports.circular = Symbol();
-/** Tools for creating a single-input developer tools terminal. */
-exports.dev = {
-    /** Executes the given code and returns the result. */
-    execute(context, ...args) {
-        const self = globalThis.hasOwnProperty('self');
-        self || (globalThis.self = context);
-        try {
-            const result = Polyglot.eval('js', args.join(' '));
-            self || delete globalThis.self;
-            return exports.format.output(result);
-        }
-        catch (whoops) {
-            self || delete globalThis.self;
-            return exports.format.error(whoops);
-        }
-    },
-    /** Returns a set of completions for the given input. */
-    complete(context, ...args) {
-        let body = '';
-        let index = -1;
-        let scope = globalThis;
-        let valid = true;
-        let string = false;
-        let bracket = false;
-        let comment = false;
-        let property = '';
-        const input = args.join(' ');
-        while (valid && ++index < input.length) {
-            const char = input[index];
-            if (comment) {
-                if (char === '*' && input[index + 1] === '/') {
-                    if (property) {
-                        input[index + 2] === ';' && (comment = false);
-                    }
-                    else {
-                        body = input.slice(0, index + 2);
-                        comment = false;
-                    }
-                }
-            }
-            else if (string) {
-                if (char === '\\') {
-                    ++index;
-                }
-                else if (char === string) {
-                    scope = {};
-                    string = false;
-                }
-            }
-            else if (bracket === true) {
-                ["'", '"', '`'].includes(char) ? (bracket = char) : (valid = false);
-            }
-            else if (typeof bracket === 'string') {
-                switch (char) {
-                    case '\\':
-                        ++index;
-                        break;
-                    case bracket:
-                        bracket = -1;
-                        break;
-                    default:
-                        property += char;
-                }
-            }
-            else {
-                switch (char) {
-                    case '/':
-                        switch (input[index + 1]) {
-                            case '/':
-                                valid = false;
-                                break;
-                            case '*':
-                                comment = true;
-                                break;
-                        }
-                        break;
-                    case "'":
-                    case '"':
-                    case '`':
-                        bracket === -1 ? (valid = false) : (string = char);
-                        break;
-                    case ')':
-                    case '{':
-                    case '}':
-                        bracket || (scope = {});
-                        break;
-                    case '.':
-                    case '[':
-                        if (!bracket) {
-                            if (char === '.' || property) {
-                                body = input.slice(0, index + 1);
-                                if (scope === globalThis && property === 'self' && !scope.hasOwnProperty('self')) {
-                                    scope = context;
-                                }
-                                else {
-                                    scope = scope[property] || {};
-                                }
-                                char === '.' || (bracket = true);
-                                property = '';
-                            }
-                            else {
-                                body = input.slice(0, index + 1);
-                                scope = globalThis;
-                            }
-                        }
-                        break;
-                    case ']':
-                        bracket === -1 && (bracket = false);
-                        break;
-                    case '\\':
-                        typeof bracket === 'string' ? ++index : (valid = false);
-                        break;
-                    case ' ':
-                        property ? (valid = false) : (body = '');
-                        break;
-                    default:
-                        if (stdlib_1.regex.test(char, '[\\+\\-\\*\\/\\^=!&\\|\\?:\\(,;]')) {
-                            if (!bracket) {
-                                body = input.slice(0, index + 1);
-                                scope = globalThis;
-                                property = '';
-                            }
-                        }
-                        else {
-                            property += char;
-                        }
-                }
-            }
-        }
-        if (valid && scope && !(comment || string)) {
-            const properties = Object.getOwnPropertyNames(scope);
-            scope === globalThis && !properties.includes('self') && properties.push('self');
-            return properties
-                .sort()
-                .filter(element => element.toLowerCase().includes(property.toLowerCase()))
-                .filter(name => bracket || stdlib_1.regex.test(name, '[_A-Za-z$][_0-9A-Za-z$]*'))
-                .map(name => {
-                if (bracket) {
-                    return `${body}\`${stdlib_1.regex.replace(name, '`', '\\`').split('\\').join('\\\\')}\`]`;
-                }
-                else {
-                    return `${body}${name}`;
-                }
-            });
-        }
-        else {
-            return [];
-        }
-    }
-};
 /** Formatting tools for script feedback. */
 exports.format = {
     /** Reformats complex error messages into layman-friendly ones. */
@@ -462,7 +312,10 @@ stdlib_1.command({
             }
         }
         if (valid && scope && !(comment || string)) {
-            const properties = Object.getOwnPropertyNames(scope);
+            const properties = [
+                ...Object.getOwnPropertyNames(scope.constructor ? scope.constructor.prototype || {} : {}),
+                ...Object.getOwnPropertyNames(scope)
+            ];
             scope === globalThis && !properties.includes('self') && properties.push('self');
             return properties
                 .sort()

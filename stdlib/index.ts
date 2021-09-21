@@ -7,6 +7,9 @@ import { jiFile, jiInputStream } from '@grakkit/types';
 /** A set of listeners attached to an event. */
 export type cascade = Set<((event: any) => void) | { script: (event: any) => void; priority: priority }>;
 
+/** A valid event name. */
+export type events = keyof classes & `${string}Event`;
+
 /** A pending task. */
 export type future = { tick: number; args: any[]; script: Function };
 
@@ -63,10 +66,8 @@ export type response = {
    read(async?: false): string;
    /** Returns the content (if any) of the response. */
    read(async: true): Promise<string>;
-   /** Synchronously returns the response stream. */
-   stream(async?: false): jiInputStream;
    /** Returns the response stream. */
-   stream(async: true): Promise<jiInputStream>;
+   stream(): jiInputStream;
 };
 
 if ('Grakkit' in globalThis) {
@@ -80,7 +81,7 @@ if ('Grakkit' in globalThis) {
 /** A session container for this module. */
 export const session = {
    data: new Map<string, any>(),
-   event: new Map<keyof classes & `${string}Event`, cascade>(),
+   event: new Map<events, cascade>(),
    load: new Map<string, any>(),
    poly: { index: 0, list: new Map<number, future>() },
    task: { list: new Set<future>(), tick: 0 },
@@ -104,11 +105,42 @@ const Paths = type('java.nio.file.Paths');
 const Pattern = type('java.util.regex.Pattern');
 const Scanner = type('java.util.Scanner');
 const URL = type('java.net.URL');
+const UUID = type('java.util.UUID');
 
-/** It's complicated. */
-export function chain<X, Y extends (input: X, chain: (object: X) => ReturnType<Y>) => any> (base: X, modifier: Y) {
-   const chain = (object: X) => modifier(object, chain);
-   chain(base);
+/** Runs a task off the main server thread. */
+export function async<X> (script: (...args: any[]) => X | Promise<X>) {
+   switch (env.name) {
+      case 'bukkit':
+         return new Promise<X>((resolve, reject) => {
+            env.content.server.getScheduler().runTaskAsynchronously(
+               env.content.plugin,
+               new env.content.Runnable(async () => {
+                  try {
+                     resolve(await script());
+                  } catch (error) {
+                     reject(error);
+                  }
+               })
+            );
+         });
+      case 'minestom':
+         return new Promise<X>(async (resolve, reject) => {
+            try {
+               resolve(await script());
+            } catch (error) {
+               reject(error);
+            }
+         });
+   }
+}
+
+/** It's even more complicated. */
+export function chain<A, B extends (input: A, loop: (input: A) => C) => any, C extends ReturnType<B>> (
+   input: A,
+   handler: B
+): C {
+   const loop = (input: A): C => handler(input, loop);
+   return loop(input);
 }
 
 /** Registers a custom command to the server. */
@@ -122,38 +154,37 @@ export function command (options: {
    tabComplete?: (sender: any, ...args: string[]) => string[];
 }) {
    switch (env.name) {
-      case 'bukkit':
-         {
-            env.content.plugin.register(
-               options.namespace || env.content.plugin.getName(),
-               options.name,
-               options.aliases || [],
-               options.permission || '',
-               options.message || '',
-               (sender, label, args) => {
-                  try {
-                     if (!options.permission || sender.hasPermission(options.permission)) {
-                        options.execute && options.execute(sender, ...args);
-                     } else {
-                        sender.sendMessage(options.message || '');
-                     }
-                  } catch (error) {
-                     console.error(`An error occured while attempting to execute the "${label}" command!`);
-                     console.error(error.stack || error.message || error);
+      case 'bukkit': {
+         env.content.plugin.register(
+            options.namespace || env.content.plugin.getName(),
+            options.name,
+            options.aliases || [],
+            options.permission || '',
+            options.message || '',
+            (sender: any, label: string, args: string[]) => {
+               try {
+                  if (!options.permission || sender.hasPermission(options.permission)) {
+                     options.execute && options.execute(sender, ...args);
+                  } else {
+                     sender.sendMessage(options.message || '');
                   }
-               },
-               (sender, alias, args) => {
-                  try {
-                     return (options.tabComplete && options.tabComplete(sender, ...args)) || [];
-                  } catch (error) {
-                     console.error(`An error occured while attempting to tab-complete the "${alias}" command!`);
-                     console.error(error.stack || error.message || error);
-                     return [];
-                  }
+               } catch (error) {
+                  console.error(`An error occured while attempting to execute the "${label}" command!`);
+                  console.error(error.stack || error.message || error);
                }
-            );
-         }
+            },
+            (sender: any, alias: string, args: string[]) => {
+               try {
+                  return (options.tabComplete && options.tabComplete(sender, ...args)) || [];
+               } catch (error) {
+                  console.error(`An error occured while attempting to tab-complete the "${alias}" command!`);
+                  console.error(error.stack || error.message || error);
+                  return [];
+               }
+            }
+         );
          break;
+      }
       case 'minestom': {
          const command = new env.content.Command(options.name);
          command.addSyntax(
@@ -165,20 +196,134 @@ export function command (options: {
                   console.error(error.stack || error.message || error);
                }
             },
-            env.content.ArgumentType.StringArray(
-               'tab-complete'
-            ).setSuggestionCallback(
-               (sender, context, suggestion) => {
-                  for (const completion of options.tabComplete(sender, ...context.getInput().split(' ').slice(1)) || []) {
+            env.content.ArgumentType
+               .StringArray('tab-complete')
+               .setSuggestionCallback((sender, context, suggestion) => {
+                  for (const completion of options.tabComplete(sender, ...context.getInput().split(' ').slice(1)) ||
+                     []) {
                      suggestion.addEntry(new env.content.SuggestionEntry(completion));
                   }
-               }
-            )
+               })
          );
          env.content.registry.register(command);
       }
    }
 }
+
+/** A simple task scheduler. */
+export const task = {
+   /** Cancels a previously scheduled task. */
+   cancel (handle: future) {
+      session.task.list.delete(handle);
+   },
+   /** Schedules a task to run infinitely at a set interval. */
+   interval (script: Function, period = 0, ...args: any[]) {
+      const future = task.timeout(
+         (...args: any[]) => {
+            future.tick += Math.ceil(period < 1 ? 1 : period);
+            script(...args);
+         },
+         0,
+         ...args
+      );
+      return future;
+   },
+   /** Schedules a task to run after a set timeout. */
+   timeout (script: Function, period = 0, ...args: any[]) {
+      const future = { tick: session.task.tick + Math.ceil(period < 0 ? 0 : period), args, script };
+      session.task.list.add(future);
+      return future;
+   }
+};
+
+export const context = (() => {
+   try {
+      const meta = Grakkit.getMeta();
+
+      /* grakkit v5 detected */
+
+      return {
+         /** Creates a new context and returns its instance. If `type` is file, `content` refers to a JS file path relative to the JS root folder. If `type` is script, `content` refers to a piece of JS code. */
+         create<X extends 'file' | 'script'> (
+            type: X,
+            content: string,
+            meta?: string
+         ): { file: FileInstance; script: ScriptInstance }[X] {
+            return Grakkit[`${type}Instance`](content, meta) as any;
+         },
+         /** Destroys the currently running context. */
+         destroy () {
+            Grakkit.destroy();
+         },
+         emit (channel: string, message: string) {
+            Grakkit.emit(channel, message);
+         },
+         meta,
+         off (channel: string, listener: (data: string) => void) {
+            return Grakkit.off(channel, listener);
+         },
+         on: ((channel: string, listener?: (data: string) => void) => {
+            if (listener) {
+               return Grakkit.on(channel, listener);
+            } else {
+               return Grakkit.on(channel);
+            }
+         }) as typeof Grakkit['on']
+      };
+   } catch (error) {
+      /* grakkit v4 detected */
+
+      const channels = {} as { [x in string]: ((data: string) => void)[] };
+      const messages = [] as Message[];
+
+      task.interval(() => {
+         for (const message of messages.splice(0, messages.length)) {
+            if (message.channel in channels) {
+               for (const listener of channels[message.channel]) {
+                  try {
+                     listener(message.content);
+                  } catch (error) {
+                     console.error('An error occured while attempting to listen for a message!');
+                     console.error(error.stack || error.message || error);
+                  }
+               }
+            }
+         }
+      });
+
+      return {
+         create () {
+            throw 'Your current version of Grakkit does not support creating new contexts!';
+         },
+         destroy () {
+            throw 'The primary instance cannot be destroyed!';
+         },
+         emit (channel: string, content: string) {
+            messages.push({ channel, content });
+         },
+         meta: 'grakkit',
+         off (channel: string, listener: (data: string) => void) {
+            if (channel in channels) {
+               const list = channels[channel];
+               list.includes(listener) && list.splice(list.indexOf(listener), 1);
+            }
+         },
+         on: ((channel: string, listener?: (data: string) => void) => {
+            if (listener) {
+               channels[channel] || (channels[channel] = []).push(listener);
+            } else {
+               return new Promise<string>(resolve => {
+                  const dummy = (data: string) => {
+                     context.off(channel, dummy);
+                     resolve(data);
+                  };
+                  context.on(channel, dummy);
+               });
+            }
+         }) as typeof Grakkit['on']
+      };
+   }
+})();
 
 /** Stores data on a per-path basis. */
 export function data (path: string, ...more: string[]) {
@@ -209,7 +354,6 @@ export const env = (() => {
       });
 
       return {
-         name: 'bukkit',
          content: {
             //@ts-expect-error
             EventPriority: type('org.bukkit.event.EventPriority') as any,
@@ -217,8 +361,10 @@ export const env = (() => {
             instance: new (Java.extend(type('org.bukkit.event.Listener'), {}))(),
             manager,
             plugin,
+            Runnable: type('java.lang.Runnable'),
             server: Bukkit.getServer()
-         }
+         },
+         name: 'bukkit'
       };
    } catch (error) {
       try {
@@ -231,7 +377,6 @@ export const env = (() => {
          const extension = manager.getExtension('grakkit');
 
          return {
-            name: 'minestom',
             content: {
                //@ts-expect-error
                ArgumentType: type('net.minestom.server.command.builder.arguments.ArgumentType') as any,
@@ -244,7 +389,8 @@ export const env = (() => {
                server: MinecraftServer,
                //@ts-expect-error
                SuggestionEntry: type('net.minestom.server.command.builder.suggestion.SuggestionEntry') as any
-            }
+            },
+            name: 'minestom'
          };
       } catch (error) {
          return { name: 'unknown', content: {} };
@@ -253,7 +399,7 @@ export const env = (() => {
 })();
 
 /** Attaches one or more listeners to a server event. */
-export function event<X extends keyof classes & `${string}Event`> (
+export function event<X extends events> (
    name: X,
    ...listeners: (
       | ((event: InstanceType<classes[X]>) => void)
@@ -347,58 +493,63 @@ export function event<X extends keyof classes & `${string}Event`> (
 }
 
 /** Sends a GET request to the given URL. */
-export function fetch (link: string): response {
-   const thing = {
+export function fetch (link: string) {
+   const response: response = {
       json (async?: boolean) {
          if (async) {
-            return sync(async () => thing.json());
+            return response.read(true).then(content => JSON.parse(content));
          } else {
             try {
-               return JSON.parse(thing.read());
+               return JSON.parse(response.read());
             } catch (error) {
                throw error;
             }
          }
       },
+      //@ts-expect-error
       read (async?: boolean) {
          if (async) {
-            return sync(async () => thing.read());
+            return new Promise<string>(async resolve => {
+               const uuid = UUID.randomUUID().toString();
+               context.on(uuid).then(content => {
+                  resolve(content);
+               });
+               context
+                  .create('file', `${base}/async.js`, JSON.stringify({ link, operation: 'fetch.read', uuid }))
+                  .open();
+            });
          } else {
-            return new Scanner(thing.stream()).useDelimiter('\\A').next();
+            return new Scanner(response.stream()).useDelimiter('\\A').next();
          }
       },
-      stream (async?: boolean) {
-         if (async) {
-            return sync(async () => thing.stream());
-         } else {
-            return new URL(link).openStream();
-         }
+      stream () {
+         return new URL(link).openStream();
       }
    };
-   return thing;
+   return response;
 }
 
 /** A utility wrapper for paths and files. */
 export function file (path: string | record | jiFile, ...more: string[]) {
    path = typeof path === 'string' ? path : 'io' in path ? path.path : path.getPath();
    const io = Paths.get(path, ...more).normalize().toFile();
-   const thing: record = {
+   const record: record = {
       get children () {
-         return thing.type === 'folder' ? [ ...io.listFiles() ].map(sub => file(sub.getPath())) : null;
+         return record.type === 'folder' ? [ ...io.listFiles() ].map(sub => file(sub.getPath())) : null;
       },
       directory () {
-         if (thing.type === 'none') {
+         if (record.type === 'none') {
             chain(io, (io, loop) => {
                const parent = io.getParentFile();
                parent && (parent.exists() || loop(parent));
                io.mkdir();
             });
          }
-         return thing;
+         return record;
       },
       entry () {
-         thing.type === 'none' && thing.parent.directory() && io.createNewFile();
-         return thing;
+         record.type === 'none' && record.parent.directory() && io.createNewFile();
+         return record;
       },
       get exists () {
          return io.exists();
@@ -411,15 +562,15 @@ export function file (path: string | record | jiFile, ...more: string[]) {
             const parent = io.getParentFile();
             parent && parent.isDirectory() && (parent.listFiles()[0] || (parent.delete() && loop(parent)));
          });
-         return thing;
+         return record;
       },
       io,
       json (async?: boolean) {
          if (async) {
-            return sync(async () => thing.json());
+            return record.read(true).then(content => JSON.parse(content));
          } else {
             try {
-               return JSON.parse(thing.read());
+               return JSON.parse(record.read());
             } catch (error) {
                return null;
             }
@@ -429,7 +580,7 @@ export function file (path: string | record | jiFile, ...more: string[]) {
          return io.getName();
       },
       get parent () {
-         return thing.file('..');
+         return record.file('..');
       },
       get path () {
          return regex.replace(io.getPath(), '(\\\\)', '/');
@@ -437,9 +588,21 @@ export function file (path: string | record | jiFile, ...more: string[]) {
       //@ts-expect-error
       read (async?: boolean) {
          if (async) {
-            return sync(async () => thing.read());
+            return new Promise<string>(async resolve => {
+               const uuid = UUID.randomUUID().toString();
+               context.on(uuid).then(content => {
+                  resolve(content);
+               });
+               context
+                  .create(
+                     'file',
+                     `${base}/async.js`,
+                     JSON.stringify({ path: record.path, operation: 'file.read', uuid })
+                  )
+                  .open();
+            });
          } else {
-            return thing.type === 'file' ? new JavaString(Files.readAllBytes(io.toPath())).toString() : null;
+            return record.type === 'file' ? new JavaString(Files.readAllBytes(io.toPath())).toString() : null;
          }
       },
       remove () {
@@ -447,7 +610,7 @@ export function file (path: string | record | jiFile, ...more: string[]) {
             io.isDirectory() && [ ...io.listFiles() ].forEach(loop);
             io.exists() && io.delete();
          });
-         return thing.flush();
+         return record.flush();
       },
       get type () {
          return io.isDirectory() ? 'folder' : io.exists() ? 'file' : 'none';
@@ -455,14 +618,26 @@ export function file (path: string | record | jiFile, ...more: string[]) {
       //@ts-expect-error
       write (content: string, async?: boolean) {
          if (async) {
-            return sync(async () => thing.write(content));
+            return new Promise<record>(async resolve => {
+               const uuid = UUID.randomUUID().toString();
+               context.on(uuid).then(() => {
+                  resolve(record);
+               });
+               context
+                  .create(
+                     'file',
+                     `${base}/async.js`,
+                     JSON.stringify({ content, path: record.path, operation: 'file.write', uuid })
+                  )
+                  .open();
+            });
          } else {
-            thing.type === 'file' && Files.write(io.toPath(), new JavaString(content).getBytes());
-            return thing;
+            record.type === 'file' && Files.write(io.toPath(), new JavaString(content).getBytes());
+            return record;
          }
       }
    };
-   return thing;
+   return record;
 }
 
 /** Imports classes from external files. */
@@ -481,6 +656,12 @@ export function load (path: string | record | jiFile, name: string) {
    }
 }
 
+/** Runs a script on the next tick. */
+export function push (script: Function) {
+   Grakkit.push(script);
+}
+
+/** Tools for using regex patterns. */
 export const regex = {
    test (input: string, expression: string) {
       //@ts-expect-error
@@ -494,7 +675,7 @@ export const regex = {
 
 /** Reloads the JS environment. */
 export function reload () {
-   Grakkit.push(Grakkit.swap);
+   push(Grakkit.swap);
 }
 
 /** The root folder of the environment. */
@@ -517,38 +698,11 @@ export function simplify (object: any, placeholder?: any, objects?: Set<any>) {
    }
 }
 
-/** Runs an async function in another thread. */
 export function sync<X> (script: (...args: any[]) => Promise<X>): Promise<X> {
    return new Promise((resolve, reject) => {
       Grakkit.sync(() => script().then(resolve).catch(reject));
    });
 }
-
-/** A simple task scheduler. */
-export const task = {
-   /** Cancels a previously scheduled task. */
-   cancel (handle: future) {
-      session.task.list.delete(handle);
-   },
-   /** Schedules a task to run infinitely at a set interval. */
-   interval (script: Function, period = 0, ...args: any[]) {
-      const future = task.timeout(
-         (...args: any[]) => {
-            future.tick += Math.ceil(period < 1 ? 1 : period);
-            script(...args);
-         },
-         0,
-         ...args
-      );
-      return future;
-   },
-   /** Schedules a task to run after a set timeout. */
-   timeout (script: Function, period = 0, ...args: any[]) {
-      const future = { tick: session.task.tick + Math.ceil(period < 0 ? 0 : period), args, script };
-      session.task.list.add(future);
-      return future;
-   }
-};
 
 chain(void 0, (none, next) => {
    Grakkit.push(next);
@@ -573,7 +727,8 @@ Grakkit.hook(() => {
    }
 });
 
-const base = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+const base = __dirname;
+const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 const promise = Promise.resolve();
 
 Object.assign(globalThis, {
@@ -589,14 +744,14 @@ Object.assign(globalThis, {
             ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
             : 0
       ) {
-         buffer = base.indexOf(buffer);
+         buffer = charset.indexOf(buffer);
       }
       return output;
    },
    btoa (data: string) {
       var str = String(data);
       for (
-         var block, charCode, idx = 0, map = base, output = '';
+         var block, charCode, idx = 0, map = charset, output = '';
          str.charAt(idx | 0) || ((map = '='), idx % 1);
          output += map.charAt(63 & (block >> (8 - (idx % 1) * 8)))
       ) {
