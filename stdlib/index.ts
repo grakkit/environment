@@ -4,14 +4,32 @@ import { classes } from './classes';
 export { classes } from './classes';
 import { jiFile, jiInputStream } from '@grakkit/types';
 
+/** A serializable object. */
+export type basic = { [x in string]: basic } | basic[] | string | number | boolean | null | undefined | void;
+
 /** A set of listeners attached to an event. */
 export type cascade = Set<((event: any) => void) | { script: (event: any) => void; priority: priority }>;
+
+/** A pending task. */
+export type future = { tick: number; args: any[]; script: Function };
 
 /** A valid event name. */
 export type events = keyof classes & `${string}Event`;
 
-/** A pending task. */
-export type future = { tick: number; args: any[]; script: Function };
+/** A grakkit context instance. */
+export type instance = {
+   context: import('@grakkit/types').ogpContext;
+   hooks: { list: import('@grakkit/types').juLinkedList<Function>; release(): void };
+   messages: import('@grakkit/types').juLinkedList<{ channel: string; content: string }>;
+   meta: string;
+   root: string;
+   tasks: { list: import('@grakkit/types').juLinkedList<Function>; release(): void };
+   close(): void;
+   destroy(): void;
+   execute(): void;
+   open(): void;
+   tick(): void;
+};
 
 /** A valid event priority. */
 export type priority = 'HIGH' | 'HIGHEST' | 'LOW' | 'LOWEST' | 'MONITOR' | 'NORMAL';
@@ -74,8 +92,12 @@ if ('Grakkit' in globalThis) {
    Object.assign(globalThis, { Core: Grakkit });
 } else if ('Core' in globalThis) {
    Object.assign(globalThis, { Grakkit: Core });
+} else if ('Polyglot' in globalThis) {
+   throw 'Grakkit was not detected (or is very outdated) in your environment!';
+} else if ('Java' in globalThis) {
+   throw 'GraalJS was not detected in your environment!';
 } else {
-   throw 'Grakkit was not detected in your current environment!';
+   throw 'Java was not detected in your environment!';
 }
 
 /** A session container for this module. */
@@ -107,32 +129,62 @@ const Scanner = type('java.util.Scanner');
 const URL = type('java.net.URL');
 const UUID = type('java.util.UUID');
 
-/** Runs a task off the main server thread. */
-export function async<X> (script: (...args: any[]) => X | Promise<X>) {
-   switch (env.name) {
-      case 'bukkit':
-         return new Promise<X>((resolve, reject) => {
-            env.content.server.getScheduler().runTaskAsynchronously(
-               env.content.plugin,
-               new env.content.Runnable(async () => {
-                  try {
-                     resolve(await script());
-                  } catch (error) {
-                     reject(error);
-                  }
-               })
-            );
-         });
-      case 'minestom':
-         return new Promise<X>(async (resolve, reject) => {
-            try {
-               resolve(await script());
-            } catch (error) {
-               reject(error);
-            }
-         });
+/** A system which simplifies asynchronous cross-context code execution. */
+export const desync = {
+   /** Provides the result to a desync request within an auxilliary file. If this method is called while not within a desync-compatible context, it will fail. */
+   async provide (provider: (data: basic) => basic | Promise<basic>) {
+      try {
+         const { data, uuid } = JSON.parse(context.meta);
+         try {
+            context.emit(uuid, JSON.stringify({ data: await provider(data), status: true }));
+         } catch (error) {
+            context.emit(uuid, JSON.stringify({ data: error, status: false }));
+         }
+      } catch (error) {
+         throw 'The current context\'s metadata is incompatible with the desync system!';
+      }
+   },
+   /** Sends a desync request to another file. If said file has a valid desync provider, that provider will be triggered and a response will be sent back when ready. */
+   async request (path: string | record | jiFile, data: basic = {}) {
+      const script = file(path);
+      if (script.exists) {
+         const uuid = UUID.randomUUID().toString();
+         const promise = context.on(uuid);
+         context.create('file', file(path).io.getAbsolutePath(), JSON.stringify({ data, uuid })).open();
+         const response = JSON.parse(await promise);
+         if (response.status) return response.data as basic;
+         else throw response.data;
+      } else {
+         throw 'That file does not exist!';
+      }
+   },
+   /** Runs a task off the main server thread. */
+   shift<X> (script: (...args: any[]) => X | Promise<X>) {
+      switch (env.name) {
+         case 'bukkit':
+            return new Promise<X>((resolve, reject) => {
+               env.content.server.getScheduler().runTaskAsynchronously(
+                  env.content.plugin,
+                  new env.content.Runnable(async () => {
+                     try {
+                        resolve(await script());
+                     } catch (error) {
+                        reject(error);
+                     }
+                  })
+               );
+            });
+         case 'minestom':
+            return new Promise<X>(async (resolve, reject) => {
+               try {
+                  resolve(await script());
+               } catch (error) {
+                  reject(error);
+               }
+            });
+      }
    }
-}
+};
 
 /** It's even more complicated. */
 export function chain<A, B extends (input: A, loop: (input: A) => C) => any, C extends ReturnType<B>> (
@@ -238,17 +290,14 @@ export const task = {
 
 export const context = (() => {
    try {
-      const meta = Grakkit.getMeta();
-
-      /* grakkit v5 detected */
-
+      /* grakkit v5 */
       return {
          /** Creates a new context and returns its instance. If `type` is file, `content` refers to a JS file path relative to the JS root folder. If `type` is script, `content` refers to a piece of JS code. */
          create<X extends 'file' | 'script'> (
             type: X,
             content: string,
             meta?: string
-         ): { file: FileInstance; script: ScriptInstance }[X] {
+         ): { file: instance & { main: string }; script: instance & { code: string } }[X] {
             return Grakkit[`${type}Instance`](content, meta) as any;
          },
          /** Destroys the currently running context. */
@@ -258,7 +307,7 @@ export const context = (() => {
          emit (channel: string, message: string) {
             Grakkit.emit(channel, message);
          },
-         meta,
+         meta: Grakkit.getMeta(),
          off (channel: string, listener: (data: string) => void) {
             return Grakkit.off(channel, listener);
          },
@@ -266,15 +315,23 @@ export const context = (() => {
             if (listener) {
                return Grakkit.on(channel, listener);
             } else {
-               return Grakkit.on(channel);
+               return new Promise(resolve => {
+                  const dummy = (response: string) => {
+                     context.off(channel, dummy);
+                     resolve(response);
+                  };
+                  context.on(channel, dummy);
+               });
             }
-         }) as typeof Grakkit['on']
+         }) as { (channel: string): Promise<string>; (channel: string, listener: (data: string) => void) },
+         swap () {
+            push(Grakkit.swap);
+         }
       };
    } catch (error) {
-      /* grakkit v4 detected */
-
+      /* grakkit v4 */
       const channels = {} as { [x in string]: ((data: string) => void)[] };
-      const messages = [] as Message[];
+      const messages = [] as { channel: string; content: string }[];
 
       task.interval(() => {
          for (const message of messages.splice(0, messages.length)) {
@@ -312,15 +369,18 @@ export const context = (() => {
             if (listener) {
                channels[channel] || (channels[channel] = []).push(listener);
             } else {
-               return new Promise<string>(resolve => {
-                  const dummy = (data: string) => {
+               return new Promise(resolve => {
+                  const dummy = (response: string) => {
                      context.off(channel, dummy);
-                     resolve(data);
+                     resolve(response);
                   };
                   context.on(channel, dummy);
                });
             }
-         }) as typeof Grakkit['on']
+         }) as { (channel: string): Promise<string>; (channel: string, listener: (data: string) => void) },
+         swap () {
+            push(Grakkit.swap);
+         }
       };
    }
 })();
@@ -509,15 +569,7 @@ export function fetch (link: string) {
       //@ts-expect-error
       read (async?: boolean) {
          if (async) {
-            return new Promise<string>(async resolve => {
-               const uuid = UUID.randomUUID().toString();
-               context.on(uuid).then(content => {
-                  resolve(content);
-               });
-               context
-                  .create('file', `${base}/async.js`, JSON.stringify({ link, operation: 'fetch.read', uuid }))
-                  .open();
-            });
+            return desync.request(aux, { link, operation: 'fetch.read' }) as Promise<string>;
          } else {
             return new Scanner(response.stream()).useDelimiter('\\A').next();
          }
@@ -588,19 +640,7 @@ export function file (path: string | record | jiFile, ...more: string[]) {
       //@ts-expect-error
       read (async?: boolean) {
          if (async) {
-            return new Promise<string>(async resolve => {
-               const uuid = UUID.randomUUID().toString();
-               context.on(uuid).then(content => {
-                  resolve(content);
-               });
-               context
-                  .create(
-                     'file',
-                     `${base}/async.js`,
-                     JSON.stringify({ path: record.path, operation: 'file.read', uuid })
-                  )
-                  .open();
-            });
+            return desync.request(aux, { operation: 'file.read', path: record.path }) as Promise<string>;
          } else {
             return record.type === 'file' ? new JavaString(Files.readAllBytes(io.toPath())).toString() : null;
          }
@@ -618,19 +658,7 @@ export function file (path: string | record | jiFile, ...more: string[]) {
       //@ts-expect-error
       write (content: string, async?: boolean) {
          if (async) {
-            return new Promise<record>(async resolve => {
-               const uuid = UUID.randomUUID().toString();
-               context.on(uuid).then(() => {
-                  resolve(record);
-               });
-               context
-                  .create(
-                     'file',
-                     `${base}/async.js`,
-                     JSON.stringify({ content, path: record.path, operation: 'file.write', uuid })
-                  )
-                  .open();
-            });
+            return desync.request(aux, { content, operation: 'file.write', path: record.path }).then(() => record);
          } else {
             record.type === 'file' && Files.write(io.toPath(), new JavaString(content).getBytes());
             return record;
@@ -675,7 +703,7 @@ export const regex = {
 
 /** Reloads the JS environment. */
 export function reload () {
-   push(Grakkit.swap);
+   push(Grakkit.reload || Grakkit.swap);
 }
 
 /** The root folder of the environment. */
@@ -727,7 +755,7 @@ Grakkit.hook(() => {
    }
 });
 
-const base = __dirname;
+const aux = `${__dirname}/async.js`;
 const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 const promise = Promise.resolve();
 

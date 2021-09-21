@@ -1,15 +1,21 @@
 "use strict";
 /// <reference path="./scope.d.ts" />
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sync = exports.simplify = exports.root = exports.reload = exports.regex = exports.push = exports.load = exports.file = exports.fetch = exports.event = exports.env = exports.data = exports.context = exports.task = exports.command = exports.chain = exports.async = exports.type = exports.session = void 0;
+exports.sync = exports.simplify = exports.root = exports.reload = exports.regex = exports.push = exports.load = exports.file = exports.fetch = exports.event = exports.env = exports.data = exports.context = exports.task = exports.command = exports.chain = exports.desync = exports.type = exports.session = void 0;
 if ('Grakkit' in globalThis) {
     Object.assign(globalThis, { Core: Grakkit });
 }
 else if ('Core' in globalThis) {
     Object.assign(globalThis, { Grakkit: Core });
 }
+else if ('Polyglot' in globalThis) {
+    throw 'Grakkit was not detected (or is very outdated) in your environment!';
+}
+else if ('Java' in globalThis) {
+    throw 'GraalJS was not detected in your environment!';
+}
 else {
-    throw 'Grakkit was not detected in your current environment!';
+    throw 'Java was not detected in your environment!';
 }
 /** A session container for this module. */
 exports.session = {
@@ -39,32 +45,66 @@ const Pattern = type('java.util.regex.Pattern');
 const Scanner = type('java.util.Scanner');
 const URL = type('java.net.URL');
 const UUID = type('java.util.UUID');
-/** Runs a task off the main server thread. */
-function async(script) {
-    switch (exports.env.name) {
-        case 'bukkit':
-            return new Promise((resolve, reject) => {
-                exports.env.content.server.getScheduler().runTaskAsynchronously(exports.env.content.plugin, new exports.env.content.Runnable(async () => {
+/** A system which simplifies asynchronous cross-context code execution. */
+exports.desync = {
+    /** Provides the result to a desync request within an auxilliary file. If this method is called while not within a desync-compatible context, it will fail. */
+    async provide(provider) {
+        try {
+            const { data, uuid } = JSON.parse(exports.context.meta);
+            try {
+                exports.context.emit(uuid, JSON.stringify({ data: await provider(data), status: true }));
+            }
+            catch (error) {
+                exports.context.emit(uuid, JSON.stringify({ data: error, status: false }));
+            }
+        }
+        catch (error) {
+            throw 'The current context\'s metadata is incompatible with the desync system!';
+        }
+    },
+    /** Sends a desync request to another file. If said file has a valid desync provider, that provider will be triggered and a response will be sent back when ready. */
+    async request(path, data = {}) {
+        const script = file(path);
+        if (script.exists) {
+            const uuid = UUID.randomUUID().toString();
+            const promise = exports.context.on(uuid);
+            exports.context.create('file', file(path).io.getAbsolutePath(), JSON.stringify({ data, uuid })).open();
+            const response = JSON.parse(await promise);
+            if (response.status)
+                return response.data;
+            else
+                throw response.data;
+        }
+        else {
+            throw 'That file does not exist!';
+        }
+    },
+    /** Runs a task off the main server thread. */
+    shift(script) {
+        switch (exports.env.name) {
+            case 'bukkit':
+                return new Promise((resolve, reject) => {
+                    exports.env.content.server.getScheduler().runTaskAsynchronously(exports.env.content.plugin, new exports.env.content.Runnable(async () => {
+                        try {
+                            resolve(await script());
+                        }
+                        catch (error) {
+                            reject(error);
+                        }
+                    }));
+                });
+            case 'minestom':
+                return new Promise(async (resolve, reject) => {
                     try {
                         resolve(await script());
                     }
                     catch (error) {
                         reject(error);
                     }
-                }));
-            });
-        case 'minestom':
-            return new Promise(async (resolve, reject) => {
-                try {
-                    resolve(await script());
-                }
-                catch (error) {
-                    reject(error);
-                }
-            });
+                });
+        }
     }
-}
-exports.async = async;
+};
 /** It's even more complicated. */
 function chain(input, handler) {
     const loop = (input) => handler(input, loop);
@@ -146,8 +186,7 @@ exports.task = {
 };
 exports.context = (() => {
     try {
-        const meta = Grakkit.getMeta();
-        /* grakkit v5 detected */
+        /* grakkit v5 */
         return {
             /** Creates a new context and returns its instance. If `type` is file, `content` refers to a JS file path relative to the JS root folder. If `type` is script, `content` refers to a piece of JS code. */
             create(type, content, meta) {
@@ -160,7 +199,7 @@ exports.context = (() => {
             emit(channel, message) {
                 Grakkit.emit(channel, message);
             },
-            meta,
+            meta: Grakkit.getMeta(),
             off(channel, listener) {
                 return Grakkit.off(channel, listener);
             },
@@ -169,13 +208,22 @@ exports.context = (() => {
                     return Grakkit.on(channel, listener);
                 }
                 else {
-                    return Grakkit.on(channel);
+                    return new Promise(resolve => {
+                        const dummy = (response) => {
+                            exports.context.off(channel, dummy);
+                            resolve(response);
+                        };
+                        exports.context.on(channel, dummy);
+                    });
                 }
-            })
+            }),
+            swap() {
+                push(Grakkit.swap);
+            }
         };
     }
     catch (error) {
-        /* grakkit v4 detected */
+        /* grakkit v4 */
         const channels = {};
         const messages = [];
         exports.task.interval(() => {
@@ -216,14 +264,17 @@ exports.context = (() => {
                 }
                 else {
                     return new Promise(resolve => {
-                        const dummy = (data) => {
+                        const dummy = (response) => {
                             exports.context.off(channel, dummy);
-                            resolve(data);
+                            resolve(response);
                         };
                         exports.context.on(channel, dummy);
                     });
                 }
-            })
+            }),
+            swap() {
+                push(Grakkit.swap);
+            }
         };
     }
 })();
@@ -408,15 +459,7 @@ function fetch(link) {
         //@ts-expect-error
         read(async) {
             if (async) {
-                return new Promise(async (resolve) => {
-                    const uuid = UUID.randomUUID().toString();
-                    exports.context.on(uuid).then(content => {
-                        resolve(content);
-                    });
-                    exports.context
-                        .create('file', `${base}/async.js`, JSON.stringify({ link, operation: 'fetch.read', uuid }))
-                        .open();
-                });
+                return exports.desync.request(aux, { link, operation: 'fetch.read' });
             }
             else {
                 return new Scanner(response.stream()).useDelimiter('\\A').next();
@@ -490,15 +533,7 @@ function file(path, ...more) {
         //@ts-expect-error
         read(async) {
             if (async) {
-                return new Promise(async (resolve) => {
-                    const uuid = UUID.randomUUID().toString();
-                    exports.context.on(uuid).then(content => {
-                        resolve(content);
-                    });
-                    exports.context
-                        .create('file', `${base}/async.js`, JSON.stringify({ path: record.path, operation: 'file.read', uuid }))
-                        .open();
-                });
+                return exports.desync.request(aux, { operation: 'file.read', path: record.path });
             }
             else {
                 return record.type === 'file' ? new JavaString(Files.readAllBytes(io.toPath())).toString() : null;
@@ -517,15 +552,7 @@ function file(path, ...more) {
         //@ts-expect-error
         write(content, async) {
             if (async) {
-                return new Promise(async (resolve) => {
-                    const uuid = UUID.randomUUID().toString();
-                    exports.context.on(uuid).then(() => {
-                        resolve(record);
-                    });
-                    exports.context
-                        .create('file', `${base}/async.js`, JSON.stringify({ content, path: record.path, operation: 'file.write', uuid }))
-                        .open();
-                });
+                return exports.desync.request(aux, { content, operation: 'file.write', path: record.path }).then(() => record);
             }
             else {
                 record.type === 'file' && Files.write(io.toPath(), new JavaString(content).getBytes());
@@ -572,7 +599,7 @@ exports.regex = {
 };
 /** Reloads the JS environment. */
 function reload() {
-    push(Grakkit.swap);
+    push(Grakkit.reload || Grakkit.swap);
 }
 exports.reload = reload;
 /** The root folder of the environment. */
@@ -626,7 +653,7 @@ Grakkit.hook(() => {
         file(exports.root, 'data', `${name}.json`).entry().write(JSON.stringify(simplify(exports.session.data.get(name))));
     }
 });
-const base = __dirname;
+const aux = `${__dirname}/async.js`;
 const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 const promise = Promise.resolve();
 Object.assign(globalThis, {

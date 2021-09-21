@@ -2,18 +2,45 @@
 import { classes } from './classes';
 export { classes } from './classes';
 import { jiFile, jiInputStream } from '@grakkit/types';
+/** A serializable object. */
+export declare type basic = {
+    [x in string]: basic;
+} | basic[] | string | number | boolean | null | undefined | void;
 /** A set of listeners attached to an event. */
 export declare type cascade = Set<((event: any) => void) | {
     script: (event: any) => void;
     priority: priority;
 }>;
-/** A valid event name. */
-export declare type events = keyof classes & `${string}Event`;
 /** A pending task. */
 export declare type future = {
     tick: number;
     args: any[];
     script: Function;
+};
+/** A valid event name. */
+export declare type events = keyof classes & `${string}Event`;
+/** A grakkit context instance. */
+export declare type instance = {
+    context: import('@grakkit/types').ogpContext;
+    hooks: {
+        list: import('@grakkit/types').juLinkedList<Function>;
+        release(): void;
+    };
+    messages: import('@grakkit/types').juLinkedList<{
+        channel: string;
+        content: string;
+    }>;
+    meta: string;
+    root: string;
+    tasks: {
+        list: import('@grakkit/types').juLinkedList<Function>;
+        release(): void;
+    };
+    close(): void;
+    destroy(): void;
+    execute(): void;
+    open(): void;
+    tick(): void;
 };
 /** A valid event priority. */
 export declare type priority = 'HIGH' | 'HIGHEST' | 'LOW' | 'LOWEST' | 'MONITOR' | 'NORMAL';
@@ -86,8 +113,15 @@ export declare const session: {
 };
 /** Imports the specified type from java. */
 export declare function type<X extends keyof classes>(name: X): classes[X];
-/** Runs a task off the main server thread. */
-export declare function async<X>(script: (...args: any[]) => X | Promise<X>): Promise<X>;
+/** A system which simplifies asynchronous cross-context code execution. */
+export declare const desync: {
+    /** Provides the result to a desync request within an auxilliary file. If this method is called while not within a desync-compatible context, it will fail. */
+    provide(provider: (data: basic) => basic | Promise<basic>): Promise<void>;
+    /** Sends a desync request to another file. If said file has a valid desync provider, that provider will be triggered and a response will be sent back when ready. */
+    request(path: string | record | jiFile, data?: basic): Promise<basic>;
+    /** Runs a task off the main server thread. */
+    shift<X>(script: (...args: any[]) => X | Promise<X>): Promise<X>;
+};
 /** It's even more complicated. */
 export declare function chain<A, B extends (input: A, loop: (input: A) => C) => any, C extends ReturnType<B>>(input: A, handler: B): C;
 /** Registers a custom command to the server. */
@@ -120,28 +154,23 @@ export declare const task: {
 export declare const context: {
     /** Creates a new context and returns its instance. If `type` is file, `content` refers to a JS file path relative to the JS root folder. If `type` is script, `content` refers to a piece of JS code. */
     create<X extends "file" | "script">(type: X, content: string, meta?: string): {
-        file: FileInstance;
-        script: ScriptInstance;
+        file: instance & {
+            main: string;
+        };
+        script: instance & {
+            code: string;
+        };
     }[X];
     /** Destroys the currently running context. */
     destroy(): void;
     emit(channel: string, message: string): void;
-    meta: string;
-    off(channel: string, listener: (data: string) => void): boolean;
+    meta: any;
+    off(channel: string, listener: (data: string) => void): any;
     on: {
         (channel: string): Promise<string>;
-        (channel: string, listener: (data: string) => void): void;
+        (channel: string, listener: (data: string) => void): any;
     };
-} | {
-    create(): never;
-    destroy(): never;
-    emit(channel: string, content: string): void;
-    meta: string;
-    off(channel: string, listener: (data: string) => void): void;
-    on: {
-        (channel: string): Promise<string>;
-        (channel: string, listener: (data: string) => void): void;
-    };
+    swap(): void;
 };
 /** Stores data on a per-path basis. */
 export declare function data(path: string, ...more: string[]): any;
