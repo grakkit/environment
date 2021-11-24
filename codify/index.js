@@ -171,11 +171,9 @@ exports.serialize = ((object) => {
         return {
             class: 'Location',
             pitch: object.getPitch(),
+            vector: exports.serialize(object.toVector()),
             world: object.getWorld().getUID().toString(),
-            x: object.getX(),
-            y: object.getY(),
-            yaw: object.getYaw(),
-            z: object.getZ()
+            yaw: object.getYaw()
         };
     }
     else if (object instanceof Vector) {

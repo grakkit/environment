@@ -223,11 +223,9 @@ export const serialize: Serializer = <any>((object: Serializable) => {
       return {
          class: 'Location',
          pitch: object.getPitch(),
+         vector: serialize(object.toVector()),
          world: object.getWorld().getUID().toString(),
-         x: object.getX(),
-         y: object.getY(),
-         yaw: object.getYaw(),
-         z: object.getZ()
+         yaw: object.getYaw()
       };
    } else if (object instanceof Vector) {
       return { class: 'Vector', x: object.getX(), y: object.getY(), z: object.getZ() };
