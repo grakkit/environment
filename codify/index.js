@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.serialize = exports.parse = exports.data = void 0;
 const stdlib_paper_1 = require("@grakkit/stdlib-paper");
-const spec_1 = require("./spec");
 const ArrayList = stdlib_paper_1.type('java.util.ArrayList');
 const Block = stdlib_paper_1.type('org.bukkit.block.Block');
 const BoundingBox = stdlib_paper_1.type('org.bukkit.util.BoundingBox');
@@ -95,13 +94,15 @@ exports.parse = ((object, subject) => {
                 return NBTTagByteClass.a(object.value);
             case 'NBTTagByteArray':
                 const nbt_tag_byte_array = new NBTTagByteArrayClass(new ArrayList());
-                for (const value of object.value)
+                for (const value of object.value) {
                     nbt_tag_byte_array.add(NBTTagByteClass.a(value));
+                }
                 return nbt_tag_byte_array;
             case 'NBTTagCompound':
                 const nbt_tag_compound = new NBTTagCompoundClass();
-                for (const key in object.value)
+                for (const key in object.value) {
                     nbt_tag_compound.set(key, exports.parse(object.value[key]));
+                }
                 return nbt_tag_compound;
             case 'NBTTagDouble':
                 return NBTTagDoubleClass.a(object.value);
@@ -111,20 +112,23 @@ exports.parse = ((object, subject) => {
                 return NBTTagIntClass.a(object.value);
             case 'NBTTagIntArray':
                 const nbt_tag_int_array = new NBTTagIntArrayClass(new ArrayList());
-                for (const value of object.value)
+                for (const value of object.value) {
                     nbt_tag_int_array.add(NBTTagIntClass.a(value));
+                }
                 return nbt_tag_int_array;
             case 'NBTTagList':
                 const nbt_tag_list = new NBTTagListClass();
-                for (const value of object.value)
+                for (const value of object.value) {
                     nbt_tag_list.add(exports.parse(value));
+                }
                 return nbt_tag_list;
             case 'NBTTagLong':
                 return NBTTagLongClass.a(object.value);
             case 'NBTTagLongArray':
                 const nbt_tag_long_array = new NBTTagLongArrayClass(new ArrayList());
-                for (const value of object.value)
+                for (const value of object.value) {
                     nbt_tag_long_array.add(NBTTagLongClass.a(value));
+                }
                 return nbt_tag_long_array;
             case 'NBTTagShort':
                 return NBTTagShortClass.a(object.value);
@@ -146,7 +150,7 @@ exports.serialize = ((object) => {
     }
     else if (object instanceof Entity) {
         //@ts-expect-error
-        const nbt = exports.serialize(object.getHandle().save(new spec_1.NBTTagCompound()));
+        const nbt = exports.serialize(object.getHandle().save(new NBTTagCompoundClass()));
         return {
             class: 'Entity',
             nbt,

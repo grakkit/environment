@@ -148,11 +148,15 @@ export const parse: Parser = <any>((object: Parsable, subject: any): any => {
             return NBTTagByteClass.a(object.value);
          case 'NBTTagByteArray':
             const nbt_tag_byte_array = new NBTTagByteArrayClass(new ArrayList());
-            for (const value of object.value) nbt_tag_byte_array.add(NBTTagByteClass.a(value));
+            for (const value of object.value) {
+               nbt_tag_byte_array.add(NBTTagByteClass.a(value));
+            }
             return nbt_tag_byte_array;
          case 'NBTTagCompound':
             const nbt_tag_compound = new NBTTagCompoundClass();
-            for (const key in object.value) nbt_tag_compound.set(key, parse(object.value[key]));
+            for (const key in object.value) {
+               nbt_tag_compound.set(key, parse(object.value[key]));
+            }
             return nbt_tag_compound;
          case 'NBTTagDouble':
             return NBTTagDoubleClass.a(object.value);
@@ -162,17 +166,23 @@ export const parse: Parser = <any>((object: Parsable, subject: any): any => {
             return NBTTagIntClass.a(object.value);
          case 'NBTTagIntArray':
             const nbt_tag_int_array = new NBTTagIntArrayClass(new ArrayList());
-            for (const value of object.value) nbt_tag_int_array.add(NBTTagIntClass.a(value));
+            for (const value of object.value) {
+               nbt_tag_int_array.add(NBTTagIntClass.a(value));
+            }
             return nbt_tag_int_array;
          case 'NBTTagList':
             const nbt_tag_list = new NBTTagListClass();
-            for (const value of object.value) nbt_tag_list.add(parse(value));
+            for (const value of object.value) {
+               nbt_tag_list.add(parse(value));
+            }
             return nbt_tag_list;
          case 'NBTTagLong':
             return NBTTagLongClass.a(object.value);
          case 'NBTTagLongArray':
             const nbt_tag_long_array = new NBTTagLongArrayClass(new ArrayList());
-            for (const value of object.value) nbt_tag_long_array.add(NBTTagLongClass.a(value));
+            for (const value of object.value) {
+               nbt_tag_long_array.add(NBTTagLongClass.a(value));
+            }
             return nbt_tag_long_array;
          case 'NBTTagShort':
             return NBTTagShortClass.a(object.value);
@@ -194,7 +204,7 @@ export const serialize: Serializer = <any>((object: Serializable) => {
       };
    } else if (object instanceof Entity) {
       //@ts-expect-error
-      const nbt: SerializedNBTTagCompound = serialize(object.getHandle().save(new NBTTagCompound()));
+      const nbt: SerializedNBTTagCompound = serialize(object.getHandle().save(new NBTTagCompoundClass()));
       return {
          class: 'Entity',
          nbt,

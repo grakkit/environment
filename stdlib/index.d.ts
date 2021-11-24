@@ -181,7 +181,7 @@ export declare const env: {
         instance: any;
         manager: any;
         plugin: any;
-        Runnable: new (...args: any[]) => import("@grakkit/types").jlRunnable;
+        Runnable: new (...args: any[]) => any;
         server: any;
         ArgumentType?: undefined;
         Command?: undefined;
@@ -240,7 +240,7 @@ export declare function push(script: Function): void;
 /** Tools for using regex patterns. */
 export declare const regex: {
     test(input: string, expression: string): any;
-    replace(input: string, expression: string, replacement: string): string;
+    replace(input: string, expression: string, replacement: string): any;
 };
 /** Reloads the JS environment. */
 export declare function reload(): void;

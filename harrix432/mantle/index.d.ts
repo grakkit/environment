@@ -121,19 +121,19 @@ declare type SerialVector = {
     y: number;
     z: number;
 };
-export declare function boundingBox(arg1: HasBoundingBox): obuBoundingBox;
+export declare function boundingBox(arg1: HasBoundingBox): any;
 export declare function data(arg1: IsContainer, arg2?: string): any;
 export declare function dist(arg1: HasVector, arg2: HasVector, arg3?: boolean): number;
 export declare function drop(arg1: HasLocation, arg2: HasItemStack, arg3?: boolean): void;
-export declare function item(options: ItemOptions): obiItemStack;
-export declare function itemStack(arg1: HasItemStack): obiItemStack;
-export declare function location(arg1: any): obLocation;
+export declare function item(options: ItemOptions): any;
+export declare function itemStack(arg1: HasItemStack): any;
+export declare function location(arg1: any): any;
 export declare function meta<X>(item: obiItemStack, modifier: (meta: obimItemMeta) => X): X;
 export declare const parse: MantleParse;
-export declare function player(arg1: string): obOfflinePlayer;
-export declare function select(arg1?: string, arg2?: obcCommandSender): obeEntity[];
+export declare function player(arg1: string): any;
+export declare function select(arg1?: string, arg2?: obcCommandSender): any[];
 export declare const serialize: MantleSerialize;
-export declare function vector(arg1: HasVector): obuVector;
+export declare function vector(arg1: HasVector): any;
 export declare class Interface {
     player: obePlayer;
     options: InterfaceOptions;
@@ -146,13 +146,13 @@ export declare class Interface {
     set title(value: string);
     get items(): {
         [x: number]: {
-            item: InterfaceItem;
+            item: any;
             action?: InterfaceAction;
         };
     };
     set items(value: {
         [x: number]: {
-            item: InterfaceItem;
+            item: any;
             action?: InterfaceAction;
         };
     });
@@ -160,7 +160,10 @@ export declare class Interface {
     generate(): this;
     show(): this;
     refresh(): void;
-    item(index: number, input?: InterfaceItem): any;
+    item(index: number, input?: InterfaceItem): {
+        item: any;
+        action?: InterfaceAction;
+    };
     action(index: number, input?: InterfaceAction): InterfaceAction;
     child(options: InterfaceOptions): Interface;
 }
