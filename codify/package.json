@@ -1,6 +1,6 @@
 {
    "dependencies": {
-      "@grakkit/stdlib-paper": "1.0.11"
+      "@grakkit/stdlib-paper": "1.0.14"
    },
    "main": "index.js",
    "name": "@grakkit/codify",
@@ -11,5 +11,5 @@
       "garbo1234": "npm publish"
    },
    "types": "index.d.ts",
-   "version": "1.0.4"
+   "version": "1.0.5"
 }
